@@ -3,21 +3,24 @@
 //////////////////////////////////////
 
 import { EventStoreDBClient } from '@eventstore/db-client';
-import { Decider } from './decider';
-import { Event } from './event';
-import { ETag } from './http';
+import { Decider, Event } from './decider';
+import { ETag } from './eTag';
 import { AppendResult, appendToStream, readStream } from './streams';
 
 export const CommandHandler =
   <State, Command, EventType extends Event>(
-    eventStore: EventStoreDBClient,
+    getEventStore: () => EventStoreDBClient,
+    toStreamId: (recordId: string) => string,
     decider: Decider<State, Command, EventType>
   ) =>
   async (
-    streamId: string,
+    recordId: string,
     command: Command,
-    eTag: ETag
+    eTag: ETag | undefined = undefined
   ): Promise<AppendResult> => {
+    const eventStore = getEventStore();
+
+    const streamId = toStreamId(recordId);
     const events = await readStream<EventType>(eventStore, streamId);
 
     const state = events.reduce<State>(
@@ -27,5 +30,7 @@ export const CommandHandler =
 
     const newEvents = decider.decide(command, state);
 
-    return appendToStream(eventStore, streamId, eTag, ...newEvents);
+    const toAppend = Array.isArray(newEvents) ? newEvents : [newEvents];
+
+    return appendToStream(eventStore, streamId, eTag, ...toAppend);
   };

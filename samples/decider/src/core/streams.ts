@@ -12,8 +12,8 @@ import {
   StreamingRead,
   WrongExpectedVersionError,
 } from '@eventstore/db-client';
-import { Event } from './event';
-import { ETag, toWeakETag } from './http';
+import { Event } from './decider';
+import { ETag, getExpectedRevisionFromETag, toWeakETag } from './eTag';
 
 export type ApplyEvent<Entity, E extends EventType> = (
   currentState: Entity | undefined,
@@ -86,7 +86,7 @@ export const appendToStream = async (
       streamId,
       events.map(jsonEvent),
       {
-        expectedRevision: eTag ? BigInt(eTag) : NO_STREAM,
+        expectedRevision: eTag ? getExpectedRevisionFromETag(eTag) : NO_STREAM,
       }
     );
 
